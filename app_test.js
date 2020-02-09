@@ -5,7 +5,24 @@ const session = require('express-session');
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+//Shopping list schema
+const shopping_list_schema = new Schema({
+    name: {
+        type: String,
+        required: true
+    },
+    notes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'note',
+        req: true
+    }]
+});
 
+const shopping_list_model = new mongoose.model('shopping-list', shopping_list_schema);
+
+
+
+//Note schema
 const note_schema = new Schema({
     text: {
         type: String,
@@ -24,6 +41,8 @@ const note_schema = new Schema({
 const note_model = new mongoose.model('note', note_schema);
 
 
+
+//User schema
 const user_schema = new Schema({
     name: {
         type: String,
@@ -35,17 +54,20 @@ const user_schema = new Schema({
         req: true
     }]
 });
-//Compiling schema into a user-model
+
 const user_model = mongoose.model('user', user_schema);
 
 
 
 let app = express();
 
+
+//Body parser
 app.use(body_parser.urlencoded({
     extended: true
 }));
 
+//Session
 app.use(session({
     secret: '1234qwerty',
     resave: true,
@@ -56,11 +78,11 @@ app.use(session({
 }));
 
 
-
 app.use((req, res, next) => {
     console.log(`path: ${req.path}`);
     next();
 });
+
 
 const is_logged_handler = (req, res, next) => {
     if (!req.session.user) {
@@ -69,7 +91,9 @@ const is_logged_handler = (req, res, next) => {
     next();
 };
 
+
 app.use('/css', express.static('css'))
+
 
 app.use((req, res, next) => {
     if (!req.session.user) {
@@ -86,7 +110,7 @@ app.use((req, res, next) => {
 
 app.get('/', is_logged_handler, (req, res, next) => {
     const user = req.user;
-    user.populate('notes')
+    user.populate('shopping_lists')
         .execPopulate()
         .then(() => {
             console.log('user:', user);
@@ -97,38 +121,21 @@ app.get('/', is_logged_handler, (req, res, next) => {
             Logged in as user: ${user.name}
             <form action="/logout" method="POST">
                 <button type="submit">Log out</button>
-            </form>`);
-            user.notes.forEach((note) => {              
-                res.write(`
-                <table>
-                    <tr>
-                        <td><b>Product:</b> ${note.text}</td>
-                        <td><b>Quantity:</b>${note.quantity}</td>
-                        <td><img src="${note.image_url}" alt="${note.text}"></td>
-                    </tr>
-                </table>
-                <form action="delete-note" method="POST">
-                    <input type="hidden" name="note_id" value="${note._id}">
-                    <button type="submit">Delete item</button>
-                </form>
-                `);
-            });
-
-            res.write(`
-            <form action="/add-note" method="POST">
-                <div>Product name:<br><input type="text" name="note_name"></div>
-                <div>Quantity:<br><input type="number" name="note_quantity"></div>
-                <div>Image url:<br><input type="text" name="note_url"></div>
-                 <button type="submit">Add to list</button>
             </form>
+                                                                             
             
-    
-        </html>
+            <form action="/add-note" method="POST"> 
+                <input type="text" name="add_list">             
+                <button type="submit">Create new shopping list</button>
+            </form>       
         </body>
+        </html>
         `);
             res.end();
         });
 });
+
+
 
 //Delete note
 app.post('/delete-note', (req, res, next) => {
@@ -149,6 +156,7 @@ app.post('/delete-note', (req, res, next) => {
     });
 });
 
+
 app.get('/note/:id', (req, res, next) => {
     const note_id = req.params.id;
     note_model.findOne({
@@ -157,6 +165,8 @@ app.get('/note/:id', (req, res, next) => {
         res.send(note.text);
     });
 });
+
+
 
 //Add note
 app.post('/add-note', (req, res, next) => {
@@ -175,11 +185,15 @@ app.post('/add-note', (req, res, next) => {
         });
     });
 });
+
+
+
 //Logout
 app.post('/logout', (req, res, next) => {
     req.session.destroy();
     res.redirect('/login');
 });
+
 
 //Login page
 app.get('/login', (req, res, next) => {
@@ -201,6 +215,8 @@ app.get('/login', (req, res, next) => {
     res.end();
 });
 
+
+
 //User login
 app.post('/login', (req, res, next) => {
     const user_name = req.body.user_name;
@@ -214,6 +230,8 @@ app.post('/login', (req, res, next) => {
         res.redirect('/login');
     });
 });
+
+
 
 //User registration
 app.post('/register', (req, res, next) => {
@@ -239,12 +257,14 @@ app.post('/register', (req, res, next) => {
     });
 });
 
+
 app.use((req, res, next) => {
     res.status(404);
     res.send(`
         page not found
     `);
 });
+
 
 //Shutdown server CTRL + C in terminal
 
